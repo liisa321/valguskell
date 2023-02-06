@@ -1,7 +1,195 @@
-<!DOCTYPE html>
 <html>
-<body>
-<h1>Hello World</h1>
-<p>I'm hosted with GitHub Pages.</p>
-</body>
+   <head>
+   <title>Valguskell</title>
+	  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"/>
+	  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+      <script type = "text/javascript" src = "suncalc.js" ></script>	  
+	  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+	  <style>
+	  body {
+	  	background: url(https://t4.ftcdn.net/jpg/02/47/88/91/240_F_247889137_guKUbsdiv3s0Bfe3URiiYSksqlCQC63i.jpg) no-repeat center center fixed;
+		background-size: cover;
+	  }
+	  
+	  #app_basic{
+		  padding: 30px;
+	  }
+	  label{
+		display: inline-block;
+		float: left;
+		clear: left;
+		width: 150px;
+		text-align: right;
+	}
+	
+	input {
+  display: inline-block;
+  float: left;
+}
+
+	  </style>    
+   </head>
+   <body>
+   <div id="app_basic">
+   <div id="region-info-container" class="container" v-if="info" class="horizontal-container">
+   <h2>Data for the query:</h2> 
+   Country: {{info.country_name}} </br>
+   City: {{info.city}} </br>
+   Coordinates: {{info.latitude}},{{info.longitude}} </br>
+   Date today: {{dateToday}}</br>
+   
+   <h2>Your data query:</h2> *Location is taken from the browser.
+	<label>Latitude:</label> <input v-model="latitude" placeholder="Type here"> </br>
+	<label>Longitude: </label> <input v-model="longitude" placeholder="Type here"></br>
+	<label>Date: </label> <input v-model="dateTodayInput" placeholder="Type here"></br> *format: mm/dd/yyyy
+	</br>
+	
+	<button v-on:click="populateData">Click me to update result</button>
+	</br>
+	<div v-if="result">
+	   <h2>Result:</h2> 
+	   <h3>Todays info:</h3> 
+		Today sunrise time: {{result.todaySunrise}} </br>
+		Today sunset time: {{result.todaySunset}} </br>
+		Today daylight time (hh:mm:ss): {{result.dayLength}} h </br>
+	    <h3>Darkest day of the year info:</h3> 
+		Darkest day of the year: {{result.darkestDay}} </br>
+		Darkest day sunrise time: {{result.darkestDaySunrise}} </br>
+		Darkest day sunset time: {{result.darkestDaySunSet}} </br>
+		Darkest day daylight time (hh:mm:ss): {{result.darkestDayDayLength}}  </br>
+		<h3>Future (if any..):</h3> 
+		Difference: {{result.diff}}
+		Tomorrow we'll have {{result.tomorrow}} minutes light more.. </br>
+		And in one week it will be even {{result.week}} minutes more.. </br>
+	</div> 
+	<div></div>
+	</div></div>
+	<script>
+	Date.prototype.addDays = function(days) {
+    var date = new Date(this.valueOf());
+    date.setDate(date.getDate() + days);
+    return date;
+	}
+
+      new Vue({
+        el: "#app_basic",
+        data: {
+          message: "🐵 Hello World 🔮",
+          timestamp: `Timestamp ${new Date().toLocaleDateString('en-US')}`,
+		  dateToday: new Date(),
+		  dateTodayInput: new Date().toLocaleDateString(),
+		  info: null,
+		  latitude: null,
+		  longitude: null,
+		  todaysSunCalc: null,
+		  result: null,
+        },
+		 mounted () {
+			 axios
+			  .get('https://geolocation-db.com/json')
+			  .then(
+				response => {
+					this.info = response.data;
+					console.log(response.data);
+					this.todaysSunCalc = this.getSunCalcObject(this.getTodaysDate());
+					this.latitude = response.data.latitude;
+					this.longitude = response.data.longitude;
+					this.populateData();
+				}
+			  );
+		  },
+		  methods: {
+			  getTodaysDate(){
+				return this.dateToday.toLocaleDateString()
+			  },
+			  populateData(){
+				this.dateToday = new Date(this.dateTodayInput);
+				console.log(this.dateTodayInput);
+				console.log(this.dateToday);
+				var today = this.getSunCalcObject();
+				console.log(today);
+				console.log(this.dateToday.addDays(7));
+				this.darkestDay = this.getDarkestDay();
+				var darkestDaySunCalc = this.getDarkestDaySunCalcObject();
+				this.result = {
+				'darkestDay' : this.darkestDay,
+				'darkestDaySunrise' : darkestDaySunCalc.sunrise,
+				'darkestDaySunSet' : darkestDaySunCalc.sunset,
+				'darkestDayDayLength': this.getDayLength(darkestDaySunCalc),
+				'todaySunrise' : today.sunrise,
+				'todaySunset' : today.sunset,
+				'dayLength' : this.getDayLength(today),
+				'tomorrow' : this.getFutureDayLengthDifference(today, 1),
+				'week': this.getFutureDayLengthDifference(today, 7)
+			   };
+			  },
+			  
+			  getSunCalcObject(){
+				return SunCalc.getTimes(this.dateToday.addDays(+1) ,this.latitude, this.longitude );
+			  },
+			  
+			  getSunCalcObjectAsText(sunCalc){
+				console.log(this.todaysSunCalc);
+				return `Sunrise ${sunCalc.sunrise.toLocaleString()}`
+			  },
+			
+			getDarkestDaySunCalcObject(){
+				return SunCalc.getTimes(this.darkestDay ,this.latitude, this.longitude )
+			},
+			
+			getDarkestDay(){
+				return new Date((this.dateToday.getYear() + 1900-1), 11,21);
+			},
+			
+			getDayLength(sunCalc){
+				var diff = sunCalc.sunset.getTime() - sunCalc.sunrise.getTime();
+				return this.parseMillisecondsIntoReadableTime(diff );
+			},
+			
+			parseMillisecondsIntoReadableTime(milliseconds){
+			  //Get hours from milliseconds
+			  var hours = milliseconds / (1000*60*60);
+			  var absoluteHours = Math.floor(hours);
+			  var h = absoluteHours > 9 ? absoluteHours : '0' + absoluteHours;
+
+			  //Get remainder from hours and convert to minutes
+			  var minutes = (hours - absoluteHours) * 60;
+			  var absoluteMinutes = Math.floor(minutes);
+			  var m = absoluteMinutes > 9 ? absoluteMinutes : '0' +  absoluteMinutes;
+
+			  //Get remainder from minutes and convert to seconds
+			  var seconds = (minutes - absoluteMinutes) * 60;
+			  var absoluteSeconds = Math.floor(seconds);
+			  var s = absoluteSeconds > 9 ? absoluteSeconds : '0' + absoluteSeconds;
+			  return h + ':' + m + ':' + s;
+			},
+			
+			getFutureDayLengthDifference(sunCalc, daysToAdd){
+				var todayDayLength = sunCalc.sunset.getTime() - sunCalc.sunrise.getTime();
+				var newDate = this.dateToday.addDays(daysToAdd);
+				var newDateSuncalc = SunCalc.getTimes(newDate ,this.latitude, this.longitude );
+				var newDateDayLength = newDateSuncalc.sunset.getTime() - newDateSuncalc.sunrise.getTime();
+				var diff = newDateDayLength - todayDayLength;
+				return this.parseMillisecondsIntoReadableTime(diff);
+			}
+		}
+      })
+	  new Vue({
+		  el: '#region-info-container',
+		  data () {
+			return {
+			  info: null
+			}
+		  },
+		  mounted () {
+			axios
+			  .get('https://geolocation-db.com/json')
+			  .then(response => (this.info = response.data))
+		  }
+		 
+	  })
+    </script>
+	<p id="demo"></p>
+
+   </body>
 </html>
